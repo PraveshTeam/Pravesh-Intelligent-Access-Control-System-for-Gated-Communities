@@ -1,10 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Pravesh.API.Data;
 using Pravesh.API.DTOs.Auth;
-using Pravesh.API.Entities;
-using Pravesh.API.Helpers;
+using Pravesh.API.Services.Interfaces;
 using System.Security.Claims;
 
 namespace Pravesh.API.Controllers;
@@ -13,98 +10,47 @@ namespace Pravesh.API.Controllers;
 [Route("api/auth")]
 public class AuthController : ControllerBase
 {
-    private readonly AppDbContext _db;
-    private readonly JwtService _jwt;
+    private readonly IAuthService _authService;
 
-    public AuthController(AppDbContext db, JwtService jwt)
+    public AuthController(IAuthService authService)
     {
-        _db = db;
-        _jwt = jwt;
+        _authService = authService;
     }
+
+    private int GetUserId() =>
+        int.Parse(User.FindFirstValue("userId")!);
 
     // ── POST /api/auth/register ───────────────────────────────────────────────
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterRequest req)
     {
-        if (req == null)
-            return BadRequest(new { success = false, message = "Request body is required." });
-
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
-        // Check duplicate email
-        if (await _db.Users.AnyAsync(u => u.Email == req.Email))
-            return BadRequest(new { success = false, message = "Email already registered." });
 
-        // Validate society exists if provided
-        if (req.SocietyId.HasValue)
+        try
         {
-            var societyExists = await _db.Societies.AnyAsync(s => s.Id == req.SocietyId.Value);
-            if (!societyExists)
-                return BadRequest(new { success = false, message = "Society not found." });
+            var result = await _authService.RegisterAsync(req);
+            return Ok(result);
         }
-
-        // Validate flat exists if provided
-        if (req.FlatId.HasValue)
+        catch (ArgumentException ex)
         {
-            var flatExists = await _db.Flats.AnyAsync(f => f.Id == req.FlatId.Value);
-            if (!flatExists)
-                return BadRequest(new { success = false, message = "Flat not found." });
+            return BadRequest(new { success = false, message = ex.Message });
         }
-
-        var user = new User
-        {
-            Name         = req.Name,
-            Email        = req.Email,
-            Phone        = req.Phone,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.Password),
-            Role         = req.Role,
-            SocietyId    = req.SocietyId,
-            FlatId       = req.FlatId,
-            IsActive     = true,
-            CreatedAt    = DateTime.UtcNow
-        };
-
-        _db.Users.Add(user);
-        await _db.SaveChangesAsync();
-
-        var token = _jwt.GenerateToken(user);
-
-        return Ok(new AuthResponse
-        {
-            Token     = token,
-            Name      = user.Name,
-            Email     = user.Email,
-            Role      = user.Role.ToString(),
-            UserId    = user.Id,
-            FlatId    = user.FlatId,
-            SocietyId = user.SocietyId
-        });
     }
 
     // ── POST /api/auth/login ──────────────────────────────────────────────────
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest req)
     {
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == req.Email);
-
-        if (user == null || !BCrypt.Net.BCrypt.Verify(req.Password, user.PasswordHash))
-            return Unauthorized(new { success = false, message = "Invalid email or password." });
-
-        if (!user.IsActive)
-            return Unauthorized(new { success = false, message = "Account is deactivated. Contact admin." });
-
-        var token = _jwt.GenerateToken(user);
-
-        return Ok(new AuthResponse
+        try
         {
-            Token     = token,
-            Name      = user.Name,
-            Email     = user.Email,
-            Role      = user.Role.ToString(),
-            UserId    = user.Id,
-            FlatId    = user.FlatId,
-            SocietyId = user.SocietyId
-        });
+            var result = await _authService.LoginAsync(req);
+            return Ok(result);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { success = false, message = ex.Message });
+        }
     }
 
     // ── GET /api/users/me ─────────────────────────────────────────────────────
@@ -112,24 +58,15 @@ public class AuthController : ControllerBase
     [HttpGet("/api/users/me")]
     public async Task<IActionResult> GetMe()
     {
-        var userId = int.Parse(User.FindFirstValue("userId")!);
-        var user   = await _db.Users.FindAsync(userId);
-
-        if (user == null)
-            return NotFound(new { success = false, message = "User not found." });
-
-        return Ok(new UserProfileResponse
+        try
         {
-            Id        = user.Id,
-            Name      = user.Name,
-            Email     = user.Email,
-            Phone     = user.Phone,
-            Role      = user.Role.ToString(),
-            FlatId    = user.FlatId,
-            SocietyId = user.SocietyId,
-            IsActive  = user.IsActive,
-            CreatedAt = user.CreatedAt
-        });
+            var result = await _authService.GetMeAsync(GetUserId());
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { success = false, message = ex.Message });
+        }
     }
 
     // ── PUT /api/users/me ─────────────────────────────────────────────────────
@@ -137,17 +74,14 @@ public class AuthController : ControllerBase
     [HttpPut("/api/users/me")]
     public async Task<IActionResult> UpdateMe([FromBody] UpdateProfileRequest req)
     {
-        var userId = int.Parse(User.FindFirstValue("userId")!);
-        var user   = await _db.Users.FindAsync(userId);
-
-        if (user == null)
-            return NotFound(new { success = false, message = "User not found." });
-
-        user.Name  = req.Name;
-        user.Phone = req.Phone;
-
-        await _db.SaveChangesAsync();
-
-        return Ok(new { success = true, message = "Profile updated successfully." });
+        try
+        {
+            await _authService.UpdateMeAsync(GetUserId(), req);
+            return Ok(new { success = true, message = "Profile updated successfully." });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { success = false, message = ex.Message });
+        }
     }
 }
