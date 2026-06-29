@@ -20,7 +20,4 @@ public class RegisterRequest
 
     [Required]
     public UserRole Role { get; set; } = UserRole.RESIDENT;
-
-    public int? SocietyId { get; set; }
-    public int? FlatId { get; set; }
 }
