@@ -4,7 +4,9 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Pravesh.API.Data;
 using Pravesh.API.Helpers;
+using Pravesh.API.Services;
 using System.Text;
+using Pravesh.API.Services.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,30 +15,31 @@ var connStr = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseMySql(connStr, ServerVersion.AutoDetect(connStr)));
 
-// ── JWT Authentication ────────────────────────────────────────────────────────
-var jwtKey = builder.Configuration["Jwt:Key"]!;
+// ── JWT ───────────────────────────────────────────────────────────────────────
+var jwtKey    = builder.Configuration["Jwt:Key"]!;
 var jwtIssuer = builder.Configuration["Jwt:Issuer"]!;
 
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme    = JwtBearerDefaults.AuthenticationScheme;
 })
 .AddJwtBearer(options =>
 {
     options.TokenValidationParameters = new TokenValidationParameters
     {
-        ValidateIssuer = true,
-        ValidateAudience = false,
-        ValidateLifetime = true,
+        ValidateIssuer           = true,
+        ValidateAudience         = false,
+        ValidateLifetime         = true,
         ValidateIssuerSigningKey = true,
-        ValidIssuer = jwtIssuer,
-        IssuerSigningKey = new SymmetricSecurityKey(
+        ValidIssuer              = jwtIssuer,
+        IssuerSigningKey         = new SymmetricSecurityKey(
                                        Encoding.UTF8.GetBytes(jwtKey))
     };
 });
 
 builder.Services.AddAuthorization();
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
 builder.Services.AddCors(options =>
@@ -47,7 +50,7 @@ builder.Services.AddCors(options =>
               .AllowAnyMethod());
 });
 
-// ── Controllers + JSON enum support ──────────────────────────────────────────
+// ── Controllers ───────────────────────────────────────────────────────────────
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
@@ -60,21 +63,17 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Pravesh API", Version = "v1" });
-
-    // ── JWT Bearer button in Swagger UI ──────────────────────────────────────
     var securityScheme = new OpenApiSecurityScheme
     {
-        Name = "Authorization",
-        Description = "Enter: Bearer {your JWT token}",
-        In = ParameterLocation.Header,
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer",
+        Name         = "Authorization",
+        Description  = "Enter: Bearer {your JWT token}",
+        In           = ParameterLocation.Header,
+        Type         = SecuritySchemeType.ApiKey,
+        Scheme       = "Bearer",
         BearerFormat = "JWT"
     };
-
     c.AddSecurityDefinition("Bearer", securityScheme);
-
-    var securityRequirement = new OpenApiSecurityRequirement
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
             new OpenApiSecurityScheme
@@ -87,15 +86,21 @@ builder.Services.AddSwaggerGen(c =>
             },
             Array.Empty<string>()
         }
-    };
-
-    c.AddSecurityRequirement(securityRequirement);
+    });
 });
 
-// ── DI — Services ─────────────────────────────────────────────────────────────
+// ── Services ──────────────────────────────────────────────────────────────────
 builder.Services.AddScoped<JwtService>();
+builder.Services.AddScoped<EmailService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IAdminService, AdminService>();
+builder.Services.AddScoped<ISocietyService, SocietyService>();
+builder.Services.AddScoped<IFlatService, FlatService>();
+builder.Services.AddScoped<IGateService, GateService>();
+builder.Services.AddScoped<IPassService, PassService>();
+builder.Services.AddScoped<IEntryService, EntryService>();
 
-// ── App Pipeline ──────────────────────────────────────────────────────────────
+// ── Pipeline ──────────────────────────────────────────────────────────────────
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -105,7 +110,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("AllowReactDev");
-app.UseAuthentication();   // ← must come before UseAuthorization
+app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 app.Run();
