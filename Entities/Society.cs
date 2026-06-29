@@ -22,7 +22,6 @@ public class Society
     [Column("city")]
     public string? City { get; set; }
 
-    // FK → users.id (Society Admin)
     [Column("admin_id")]
     public int? AdminId { get; set; }
 
@@ -33,9 +32,8 @@ public class Society
     public bool IsActive { get; set; } = true;
 
     [Column("created_at")]
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
 
-    // Navigation properties
     public ICollection<Flat> Flats { get; set; } = new List<Flat>();
     public ICollection<Gate> Gates { get; set; } = new List<Gate>();
     public ICollection<User> Users { get; set; } = new List<User>();

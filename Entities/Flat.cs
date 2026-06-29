@@ -10,7 +10,6 @@ public class Flat
     [Column("id")]
     public int Id { get; set; }
 
-    // FK → societies.id
     [Required]
     [Column("society_id")]
     public int SocietyId { get; set; }
@@ -21,7 +20,7 @@ public class Flat
     [Required]
     [MaxLength(20)]
     [Column("flat_number")]
-    public string FlatNumber { get; set; } = string.Empty;   // e.g. A-304
+    public string FlatNumber { get; set; } = string.Empty;
 
     [MaxLength(20)]
     [Column("tower")]
@@ -30,13 +29,11 @@ public class Flat
     [Column("floor")]
     public int? Floor { get; set; }
 
-    // FK → users.id (NULL if flat is vacant)
     [Column("resident_id")]
     public int? ResidentId { get; set; }
 
     [ForeignKey(nameof(ResidentId))]
     public User? Resident { get; set; }
 
-    // Navigation properties
     public ICollection<VisitorPass> VisitorPasses { get; set; } = new List<VisitorPass>();
 }

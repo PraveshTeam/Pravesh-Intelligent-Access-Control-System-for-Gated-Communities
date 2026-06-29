@@ -34,14 +34,12 @@ public class User
     [Column("role")]
     public UserRole Role { get; set; }
 
-    // FK → flats.id (null if user is not a resident)
     [Column("flat_id")]
     public int? FlatId { get; set; }
 
     [ForeignKey(nameof(FlatId))]
     public Flat? Flat { get; set; }
 
-    // FK → societies.id
     [Column("society_id")]
     public int? SocietyId { get; set; }
 
@@ -52,9 +50,8 @@ public class User
     public bool IsActive { get; set; } = true;
 
     [Column("created_at")]
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
 
-    // Navigation properties
     public ICollection<VisitorPass> VisitorPasses { get; set; } = new List<VisitorPass>();
     public ICollection<EntryLog> EntryLogs { get; set; } = new List<EntryLog>();
 }

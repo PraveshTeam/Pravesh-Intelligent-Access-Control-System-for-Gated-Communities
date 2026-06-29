@@ -11,13 +11,11 @@ public class VisitorPass
     [Column("id")]
     public int Id { get; set; }
 
-    // Unique UUID — used as the pass identifier for entry confirmation (QR payload in Major)
     [Required]
     [MaxLength(36)]
     [Column("uuid")]
     public string Uuid { get; set; } = Guid.NewGuid().ToString();
 
-    // FK → flats.id
     [Required]
     [Column("flat_id")]
     public int FlatId { get; set; }
@@ -25,7 +23,6 @@ public class VisitorPass
     [ForeignKey(nameof(FlatId))]
     public Flat Flat { get; set; } = null!;
 
-    // FK → users.id (resident who created the pass)
     [Required]
     [Column("resident_id")]
     public int ResidentId { get; set; }
@@ -46,11 +43,9 @@ public class VisitorPass
     [Column("pass_type")]
     public PassType PassType { get; set; } = PassType.ONE_TIME;
 
-    // For MULTI_USE passes — total allowed uses
     [Column("uses_allowed")]
     public int UsesAllowed { get; set; } = 1;
 
-    // Decrements on each successful entry confirmation
     [Column("uses_remaining")]
     public int UsesRemaining { get; set; } = 1;
 
@@ -67,8 +62,7 @@ public class VisitorPass
     public PassStatus Status { get; set; } = PassStatus.ACTIVE;
 
     [Column("created_at")]
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
 
-    // Navigation properties
     public ICollection<EntryLog> EntryLogs { get; set; } = new List<EntryLog>();
 }
